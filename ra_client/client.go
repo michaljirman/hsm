@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -11,19 +10,9 @@ import (
 )
 
 func main() {
-	signerArg := flag.String("s", "", "signer ID")
+	secretArg := flag.String("s", "hello", "secret value to send")
 	serverAddr := flag.String("a", "localhost:8080", "server address")
 	flag.Parse()
-
-	// get signer command line argument
-	signer, err := hex.DecodeString(*signerArg)
-	if err != nil {
-		panic(err)
-	}
-	if len(signer) == 0 {
-		flag.Usage()
-		return
-	}
 
 	url := "https://" + *serverAddr
 
@@ -43,7 +32,7 @@ func main() {
 	tlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: "localhost"}
 	tlsConfig.RootCAs.AddCert(cert)
 
-	httpGet(tlsConfig, url+"/secret?s=mySecret")
+	httpGet(tlsConfig, fmt.Sprintf("%s/secret?s=%s", url, *secretArg))
 	fmt.Println("Sent secret over attested TLS channel.")
 }
 
