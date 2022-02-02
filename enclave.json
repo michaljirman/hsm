@@ -1,0 +1,14 @@
+{
+  "exe": "hsm",
+  "key": "private.pem",
+  "debug": true,
+  "heapSize": 512,
+  "productID": 1,
+  "securityVersion": 1,
+  "files": [
+    {
+      "source": "/opt/nfast/toolkits/pkcs11/libcknfast.so",
+      "target": "/opt/nfast/toolkits/pkcs11/libcknfast.so"
+    }
+  ]
+}
