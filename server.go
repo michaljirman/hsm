@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -11,21 +12,23 @@ import (
 	"math/big"
 	"net/http"
 	"time"
+
+	"github.com/edgelesssys/ego/enclave"
 )
 
 func main() {
 	// Create certificate and a report that includes the certificate's hash.
 	cert, priv := createCertificate()
-	//hash := sha256.Sum256(cert)
-	//report, err := enclave.GetRemoteReport(hash[:])
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
+	hash := sha256.Sum256(cert)
+	report, err := enclave.GetRemoteReport(hash[:])
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	// Create HTTPS server.
 
 	http.HandleFunc("/cert", func(w http.ResponseWriter, r *http.Request) { w.Write(cert) })
-	//http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) { w.Write(report) })
+	http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) { w.Write(report) })
 	http.HandleFunc("/secret", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("%v sent secret %v\n", r.RemoteAddr, r.URL.Query()["s"])
 	})
@@ -42,7 +45,7 @@ func main() {
 	server := http.Server{Addr: "0.0.0.0:8080", TLSConfig: &tlsCfg}
 
 	fmt.Println("listening ...")
-	err := server.ListenAndServeTLS("", "")
+	err = server.ListenAndServeTLS("", "")
 	fmt.Println(err)
 }
 
