@@ -1,13 +1,25 @@
 package main
 
 import (
+	`crypto/rand`
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	`log`
 	"net/http"
+
+	"github.com/ThalesIgnite/crypto11"
 )
+
+func randomBytes() []byte {
+	result := make([]byte, 32)
+	rand.Read(result)
+	return result
+}
+
+const rsaSize = 2048
 
 func main() {
 	secretArg := flag.String("s", "hello", "secret value to send")
@@ -15,6 +27,24 @@ func main() {
 	flag.Parse()
 
 	url := "https://" + *serverAddr
+
+
+	ctx, err := crypto11.Configure(&crypto11.Config{
+		Path:              "/opt/nfast/toolkits/pkcs11/libcknfast.so",
+		TokenSerial:       "6D30-03E0-D947",
+		LoginNotSupported: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	id := randomBytes()
+	_, err = ctx.GenerateRSAKeyPair(id, rsaSize)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("RSA key pair was successfully generated")
+
 
 	// Get server certificate and its report. Skip TLS certificate verification because
 	// the certificate is self-signed and we will verify it using the report instead.
@@ -33,7 +63,7 @@ func main() {
 	tlsConfig.RootCAs.AddCert(cert)
 
 	httpGet(tlsConfig, fmt.Sprintf("%s/secret?s=%s", url, *secretArg))
-	fmt.Println("Sent secret over attested TLS channel.")
+	fmt.Println("Sent secret over TLS channel.")
 }
 
 //func verifyReport(reportBytes, certBytes, signer []byte) error {
