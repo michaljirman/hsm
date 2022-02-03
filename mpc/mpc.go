@@ -17,7 +17,7 @@ const rsaSize = 2048
 
 func main() {
 	ctx, err := crypto11.Configure(&crypto11.Config{
-		Path:              "/opt/nfast/toolkits/pkcs11/libcknfast.so",
+		Path:              "hostfs/pkcs11/libcknfast.so",
 		TokenSerial:       "6D30-03E0-D947",
 		LoginNotSupported: true,
 	})
