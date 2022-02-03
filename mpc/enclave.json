@@ -7,8 +7,8 @@
   "securityVersion": 2,
   "mounts": [
     {
-      "source": "/opt/nfast/toolkits/pkcs11",
-      "target": "/pkcs11",
+      "source": "/opt/nfast",
+      "target": "/nfast",
       "type": "hostfs"
     }
   ]

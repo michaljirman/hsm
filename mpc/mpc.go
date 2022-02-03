@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/rand"
+	`errors`
 	"log"
+	`os`
 
 	"github.com/ThalesIgnite/crypto11"
 )
@@ -13,11 +15,17 @@ func randomBytes() []byte {
 	return result
 }
 
-const rsaSize = 2048
+const (
+	rsaSize = 2048
+	path = "/nfast/toolkits/pkcs11/libcknfast.so"
+)
 
 func main() {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		log.Fatal("file does not exists", err)
+	}
 	ctx, err := crypto11.Configure(&crypto11.Config{
-		Path:              "hostfs/pkcs11/libcknfast.so",
+		Path:              path,
 		TokenSerial:       "6D30-03E0-D947",
 		LoginNotSupported: true,
 	})
