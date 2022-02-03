@@ -1,15 +1,8 @@
 {
-  "exe": "mpc",
+  "exe": "server",
   "key": "private.pem",
   "debug": true,
   "heapSize": 512,
   "productID": 1234,
-  "securityVersion": 2,
-  "mounts": [
-    {
-      "source": "/opt/nfast",
-      "target": "/nfast",
-      "type": "hostfs"
-    }
-  ]
+  "securityVersion": 2
 }
