@@ -293,28 +293,30 @@ func main() {
 
 	mpcSignerManager := NewMpcSignerManager()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	signerProcessCtx, signerProcessCancel := context.WithCancel(context.Background())
+
+	readinessCtx, readinessCancel := context.WithCancel(signerProcessCtx)
 	for i := 0; i < *mpcSignerNum; i++ {
 		signer := mpcSignerManager.next(*runOnSGX)
-		go func(ctx context.Context) {
-			if err := signer.Start(ctx); err != nil {
+		go func(readinessCtx context.Context) {
+			if err := signer.Start(signerProcessCtx); err != nil {
 				log.Printf("failed to start signer: %+v\n", err)
 				return
 			}
 			for {
 				select {
-				case <-ctx.Done():
+				case <-readinessCtx.Done():
+					fmt.Println("stopping mpc-signer ready checks")
 					// at this point grpc server should have received signal via ctx to gracefully stop
-					fmt.Println("stopping mpc-signer")
-					// give grpc server some extra time to stop (should be handle differently later)
-					time.Sleep(2 * time.Second)
-					// kill the process; if not done then `signer` process stops but the parent `ego-host` remains running
-					if err := signer.process.Kill(); err != nil {
-						log.Println("failed to stop signer", err)
-					}
+					//// give grpc server some extra time to stop (should be handle differently later)
+					//time.Sleep(2 * time.Second)
+					//// kill the process; if not done then `signer` process stops but the parent `ego-host` remains running
+					//if err := signer.process.Kill(); err != nil {
+					//	log.Println("failed to stop signer", err)
+					//}
 					return
 				default:
-					resp, err := signer.client.Ready(ctx, &pb.ReadyRequest{})
+					resp, err := signer.client.Ready(readinessCtx, &pb.ReadyRequest{})
 					if err != nil {
 						fmt.Printf("failed to check if server is ready: %+v\n", err)
 					}
@@ -322,7 +324,7 @@ func main() {
 					time.Sleep(5 * time.Second)
 				}
 			}
-		}(ctx)
+		}(readinessCtx)
 
 		//if err := signer.Test(i); err != nil {
 		//	log.Printf("failed to test signer: %+v\n", err)
@@ -330,7 +332,18 @@ func main() {
 	}
 
 	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
-	cancel()
+
+	readinessCancel()
+
+	for _, signer := range mpcSignerManager.signersMap {
+		if err := signer.Stop(signerProcessCtx); err != nil {
+			log.Println("failed to stop signer", err)
+		}
+	}
+
+	//
+	time.Sleep(10 * time.Second)
+	signerProcessCancel()
 
 	fmt.Println("waiting for another 10s")
 	time.Sleep(10 * time.Second)

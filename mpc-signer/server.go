@@ -40,8 +40,11 @@ func (s server) Ready(ctx context.Context, request *pb.ReadyRequest) (*pb.ReadyR
 
 func (s server) Shutdown(ctx context.Context, request *pb.ShutdownRequest) (*pb.ShutdownResponse, error) {
 	go func() {
+		fmt.Println("scheduling server shutdown in 5 seconds")
 		time.Sleep(2 * time.Second)
 		s.srv.GracefulStop()
+		fmt.Println("server shutdown completed")
+		time.Sleep(2 * time.Second)
 	}()
 	return &pb.ShutdownResponse{}, nil
 }
@@ -133,7 +136,8 @@ func main() {
 	//s := grpc.NewServer(grpc.Creds(creds))
 	s := grpc.NewServer()
 	pb.RegisterMpcSignerServer(s, &server{
-		id: *id,
+		id:  *id,
+		srv: s,
 	})
 
 	// and start...
@@ -143,6 +147,7 @@ func main() {
 	}
 
 	fmt.Println("done")
+	time.Sleep(5 * time.Second)
 
 	//// Create certificate and a report that includes the certificate's hash.
 	//cert, priv := createCertificate()
