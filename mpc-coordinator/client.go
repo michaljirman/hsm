@@ -79,16 +79,20 @@ func (signer *mpcSigner) Start(ctx context.Context) error {
 	return nil
 }
 
-func (signer *mpcSigner) Stop() error {
-	if signer.process != nil {
-		fmt.Printf("sending os.Interrupt to %d PID\n", signer.process.Pid)
-		if err := signer.process.Signal(os.Interrupt); err != nil {
-			return fmt.Errorf("failed to stop mpc signer proces: %w", err)
-		}
-		if _, err := signer.process.Wait(); err != nil {
-			return fmt.Errorf("failed to wait for child process to finish: %w", err)
-		}
+func (signer *mpcSigner) Stop(ctx context.Context) error {
+	_, err := signer.client.Shutdown(ctx, &pb.ShutdownRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to shutdown signer: %w", err)
 	}
+	//if signer.process != nil {
+	//	fmt.Printf("sending os.Interrupt to %d PID\n", signer.process.Pid)
+	//	if err := signer.process.Signal(os.Interrupt); err != nil {
+	//		return fmt.Errorf("failed to stop mpc signer proces: %w", err)
+	//	}
+	//	if _, err := signer.process.Wait(); err != nil {
+	//		return fmt.Errorf("failed to wait for child process to finish: %w", err)
+	//	}
+	//}
 	return nil
 }
 
@@ -321,15 +325,17 @@ func main() {
 	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
 	cancel()
 
-	time.Sleep(5 * time.Second)
-	defer func() {
-		for _, signer := range mpcSignerManager.signersMap {
-			if err := signer.Stop(); err != nil {
-				log.Println("failed to stop signer", err)
-				return
-			}
-		}
-	}()
+	time.Sleep(20 * time.Second)
+
+	//ctx, _ = context.WithCancel(context.Background())
+	//defer func() {
+	//	for _, signer := range mpcSignerManager.signersMap {
+	//		if err := signer.Stop(ctx); err != nil {
+	//			log.Println("failed to stop signer", err)
+	//			return
+	//		}
+	//	}
+	//}()
 }
 
 //func randomBytes() []byte {

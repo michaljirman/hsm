@@ -27,6 +27,8 @@ type server struct {
 	pb.UnimplementedMpcSignerServer
 
 	id string
+
+	srv *grpc.Server
 }
 
 func (s server) Ready(ctx context.Context, request *pb.ReadyRequest) (*pb.ReadyResponse, error) {
@@ -37,6 +39,10 @@ func (s server) Ready(ctx context.Context, request *pb.ReadyRequest) (*pb.ReadyR
 }
 
 func (s server) Shutdown(ctx context.Context, request *pb.ShutdownRequest) (*pb.ShutdownResponse, error) {
+	go func() {
+		time.Sleep(2 * time.Second)
+		s.srv.GracefulStop()
+	}()
 	return &pb.ShutdownResponse{}, nil
 }
 
@@ -135,6 +141,8 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
+	fmt.Println("done")
 
 	//// Create certificate and a report that includes the certificate's hash.
 	//cert, priv := createCertificate()
