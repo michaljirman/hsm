@@ -304,7 +304,14 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
-					fmt.Println("server ping is stopping")
+					// at this point grpc server should have received signal via ctx to gracefully stop
+					fmt.Println("stopping mpc-signer")
+					// give grpc server some extra time to stop (should be handle differently later)
+					time.Sleep(2 * time.Second)
+					// kill the process; if not done then `signer` process stops but the parent `ego-host` remains running
+					if err := signer.process.Kill(); err != nil {
+						log.Println("failed to stop signer", err)
+					}
 					return
 				default:
 					resp, err := signer.client.Ready(ctx, &pb.ReadyRequest{})
@@ -325,11 +332,13 @@ func main() {
 	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
 	cancel()
 
-	time.Sleep(20 * time.Second)
+	fmt.Println("waiting for another 10s")
+	time.Sleep(10 * time.Second)
 
 	//ctx, _ = context.WithCancel(context.Background())
 	//defer func() {
 	//	for _, signer := range mpcSignerManager.signersMap {
+	//
 	//		if err := signer.Stop(ctx); err != nil {
 	//			log.Println("failed to stop signer", err)
 	//			return
