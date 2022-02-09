@@ -29,6 +29,7 @@ const rsaSize = 2048
 const (
 	mpcSignerDefaultName           = "mpc-signer"
 	mpcSignerStartPort             = 3000
+	egoExecutableDefaultName       = "ego"
 	mpcSignerExecutableDefaultName = "./signer"
 )
 
@@ -45,9 +46,9 @@ func (signer *mpcSigner) FullName() string {
 	return fmt.Sprintf("%s-%s", signer.name, signer.id.String())
 }
 
-func (signer *mpcSigner) Start() error {
+func (signer *mpcSigner) Start(ctx context.Context) error {
 	// come out of package b and then go inside package a to run the executable file as
-	cmd := exec.Command(mpcSignerExecutableDefaultName,
+	cmd := exec.CommandContext(ctx, egoExecutableDefaultName, "run", mpcSignerExecutableDefaultName,
 		fmt.Sprintf("-port=%d", signer.port),
 		fmt.Sprintf("-id=%s", signer.id))
 	cmd.Stdout = os.Stdout
@@ -58,7 +59,7 @@ func (signer *mpcSigner) Start() error {
 	signer.process = cmd.Process
 
 	// dail mpc signer server
-	conn, err := grpc.Dial(fmt.Sprintf(":%d", signer.port), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf(":%d", signer.port), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("failed to connect with server %v", err)
 	}
@@ -279,7 +280,7 @@ func main() {
 	for i := 0; i < *mpcSignerNum; i++ {
 		signer := mpcSignerManager.next()
 		go func(ctx context.Context) {
-			if err := signer.Start(); err != nil {
+			if err := signer.Start(ctx); err != nil {
 				log.Printf("failed to start signer: %+v\n", err)
 				return
 			}
