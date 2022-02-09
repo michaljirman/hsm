@@ -2,9 +2,25 @@ syntax = "proto3";
 
 package protobuf;
 
-service MPC {
+service MpcSigner {
+    rpc Ready(ReadyRequest) returns (ReadyResponse) {}
+    rpc Shutdown(ShutdownRequest) returns (ShutdownResponse) {}
+    rpc Signature(ShutdownRequest) returns (SignatureResponse) {}
+
     rpc Test (stream Request) returns (stream Response) {}
 }
+
+message ReadyRequest {}
+message ReadyResponse {
+    string id = 1;
+    bool status = 2;
+}
+
+message ShutdownRequest {}
+message ShutdownResponse {}
+
+message SignatureRequest {}
+message SignatureResponse {}
 
 message Request {
     int32 id = 1;

@@ -13,45 +13,75 @@ import (
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion7
 
-// MPCClient is the client API for MPC service.
+// MpcSignerClient is the client API for MpcSigner service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type MPCClient interface {
-	Test(ctx context.Context, opts ...grpc.CallOption) (MPC_TestClient, error)
+type MpcSignerClient interface {
+	Ready(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
+	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
+	Signature(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*SignatureResponse, error)
+	Test(ctx context.Context, opts ...grpc.CallOption) (MpcSigner_TestClient, error)
 }
 
-type mPCClient struct {
+type mpcSignerClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewMPCClient(cc grpc.ClientConnInterface) MPCClient {
-	return &mPCClient{cc}
+func NewMpcSignerClient(cc grpc.ClientConnInterface) MpcSignerClient {
+	return &mpcSignerClient{cc}
 }
 
-func (c *mPCClient) Test(ctx context.Context, opts ...grpc.CallOption) (MPC_TestClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MPC_serviceDesc.Streams[0], "/protobuf.MPC/Test", opts...)
+func (c *mpcSignerClient) Ready(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error) {
+	out := new(ReadyResponse)
+	err := c.cc.Invoke(ctx, "/protobuf.MpcSigner/Ready", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &mPCTestClient{stream}
+	return out, nil
+}
+
+func (c *mpcSignerClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error) {
+	out := new(ShutdownResponse)
+	err := c.cc.Invoke(ctx, "/protobuf.MpcSigner/Shutdown", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mpcSignerClient) Signature(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*SignatureResponse, error) {
+	out := new(SignatureResponse)
+	err := c.cc.Invoke(ctx, "/protobuf.MpcSigner/Signature", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mpcSignerClient) Test(ctx context.Context, opts ...grpc.CallOption) (MpcSigner_TestClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_MpcSigner_serviceDesc.Streams[0], "/protobuf.MpcSigner/Test", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &mpcSignerTestClient{stream}
 	return x, nil
 }
 
-type MPC_TestClient interface {
+type MpcSigner_TestClient interface {
 	Send(*Request) error
 	Recv() (*Response, error)
 	grpc.ClientStream
 }
 
-type mPCTestClient struct {
+type mpcSignerTestClient struct {
 	grpc.ClientStream
 }
 
-func (x *mPCTestClient) Send(m *Request) error {
+func (x *mpcSignerTestClient) Send(m *Request) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *mPCTestClient) Recv() (*Response, error) {
+func (x *mpcSignerTestClient) Recv() (*Response, error) {
 	m := new(Response)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -59,53 +89,119 @@ func (x *mPCTestClient) Recv() (*Response, error) {
 	return m, nil
 }
 
-// MPCServer is the server API for MPC service.
-// All implementations must embed UnimplementedMPCServer
+// MpcSignerServer is the server API for MpcSigner service.
+// All implementations must embed UnimplementedMpcSignerServer
 // for forward compatibility
-type MPCServer interface {
-	Test(MPC_TestServer) error
-	mustEmbedUnimplementedMPCServer()
+type MpcSignerServer interface {
+	Ready(context.Context, *ReadyRequest) (*ReadyResponse, error)
+	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
+	Signature(context.Context, *ShutdownRequest) (*SignatureResponse, error)
+	Test(MpcSigner_TestServer) error
+	mustEmbedUnimplementedMpcSignerServer()
 }
 
-// UnimplementedMPCServer must be embedded to have forward compatible implementations.
-type UnimplementedMPCServer struct {
+// UnimplementedMpcSignerServer must be embedded to have forward compatible implementations.
+type UnimplementedMpcSignerServer struct {
 }
 
-func (UnimplementedMPCServer) Test(MPC_TestServer) error {
+func (UnimplementedMpcSignerServer) Ready(context.Context, *ReadyRequest) (*ReadyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ready not implemented")
+}
+func (UnimplementedMpcSignerServer) Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+func (UnimplementedMpcSignerServer) Signature(context.Context, *ShutdownRequest) (*SignatureResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Signature not implemented")
+}
+func (UnimplementedMpcSignerServer) Test(MpcSigner_TestServer) error {
 	return status.Errorf(codes.Unimplemented, "method Test not implemented")
 }
-func (UnimplementedMPCServer) mustEmbedUnimplementedMPCServer() {}
+func (UnimplementedMpcSignerServer) mustEmbedUnimplementedMpcSignerServer() {}
 
-// UnsafeMPCServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to MPCServer will
+// UnsafeMpcSignerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MpcSignerServer will
 // result in compilation errors.
-type UnsafeMPCServer interface {
-	mustEmbedUnimplementedMPCServer()
+type UnsafeMpcSignerServer interface {
+	mustEmbedUnimplementedMpcSignerServer()
 }
 
-func RegisterMPCServer(s grpc.ServiceRegistrar, srv MPCServer) {
-	s.RegisterService(&_MPC_serviceDesc, srv)
+func RegisterMpcSignerServer(s grpc.ServiceRegistrar, srv MpcSignerServer) {
+	s.RegisterService(&_MpcSigner_serviceDesc, srv)
 }
 
-func _MPC_Test_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(MPCServer).Test(&mPCTestServer{stream})
+func _MpcSigner_Ready_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MpcSignerServer).Ready(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protobuf.MpcSigner/Ready",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MpcSignerServer).Ready(ctx, req.(*ReadyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type MPC_TestServer interface {
+func _MpcSigner_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShutdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MpcSignerServer).Shutdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protobuf.MpcSigner/Shutdown",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MpcSignerServer).Shutdown(ctx, req.(*ShutdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MpcSigner_Signature_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShutdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MpcSignerServer).Signature(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protobuf.MpcSigner/Signature",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MpcSignerServer).Signature(ctx, req.(*ShutdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MpcSigner_Test_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MpcSignerServer).Test(&mpcSignerTestServer{stream})
+}
+
+type MpcSigner_TestServer interface {
 	Send(*Response) error
 	Recv() (*Request, error)
 	grpc.ServerStream
 }
 
-type mPCTestServer struct {
+type mpcSignerTestServer struct {
 	grpc.ServerStream
 }
 
-func (x *mPCTestServer) Send(m *Response) error {
+func (x *mpcSignerTestServer) Send(m *Response) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *mPCTestServer) Recv() (*Request, error) {
+func (x *mpcSignerTestServer) Recv() (*Request, error) {
 	m := new(Request)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -113,14 +209,27 @@ func (x *mPCTestServer) Recv() (*Request, error) {
 	return m, nil
 }
 
-var _MPC_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protobuf.MPC",
-	HandlerType: (*MPCServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+var _MpcSigner_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protobuf.MpcSigner",
+	HandlerType: (*MpcSignerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ready",
+			Handler:    _MpcSigner_Ready_Handler,
+		},
+		{
+			MethodName: "Shutdown",
+			Handler:    _MpcSigner_Shutdown_Handler,
+		},
+		{
+			MethodName: "Signature",
+			Handler:    _MpcSigner_Signature_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Test",
-			Handler:       _MPC_Test_Handler,
+			Handler:       _MpcSigner_Test_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
