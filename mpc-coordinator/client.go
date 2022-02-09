@@ -34,10 +34,11 @@ const (
 )
 
 type mpcSigner struct {
-	id      uuid.UUID
-	name    string
-	port    int
-	process *os.Process
+	id       uuid.UUID
+	name     string
+	port     int
+	runOnSGX bool
+	process  *os.Process
 
 	client pb.MpcSignerClient
 }
@@ -47,10 +48,18 @@ func (signer *mpcSigner) FullName() string {
 }
 
 func (signer *mpcSigner) Start(ctx context.Context) error {
-	// come out of package b and then go inside package a to run the executable file as
-	cmd := exec.CommandContext(ctx, egoExecutableDefaultName, "run", mpcSignerExecutableDefaultName,
-		fmt.Sprintf("-port=%d", signer.port),
-		fmt.Sprintf("-id=%s", signer.id))
+	var cmd *exec.Cmd
+	if signer.runOnSGX {
+		// come out of package b and then go inside package a to run the executable file as
+		cmd = exec.CommandContext(ctx, egoExecutableDefaultName, "run", mpcSignerExecutableDefaultName,
+			fmt.Sprintf("-port=%d", signer.port),
+			fmt.Sprintf("-id=%s", signer.id))
+	} else {
+		cmd = exec.CommandContext(ctx, mpcSignerExecutableDefaultName,
+			fmt.Sprintf("-port=%d", signer.port),
+			fmt.Sprintf("-id=%s", signer.id))
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -72,6 +81,7 @@ func (signer *mpcSigner) Start(ctx context.Context) error {
 
 func (signer *mpcSigner) Stop() error {
 	if signer.process != nil {
+		fmt.Printf("sending os.Interrupt to %d PID\n", signer.process.Pid)
 		if err := signer.process.Signal(os.Interrupt); err != nil {
 			return fmt.Errorf("failed to stop mpc signer proces: %w", err)
 		}
@@ -249,13 +259,14 @@ func (manager *mpcSignerManager) allocatePort() int {
 	return port
 }
 
-func (manager *mpcSignerManager) next() *mpcSigner {
+func (manager *mpcSignerManager) next(runOnSGX bool) *mpcSigner {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 	signer := &mpcSigner{
-		id:   uuid.New(),
-		port: manager.allocatePort(),
-		name: mpcSignerDefaultName,
+		id:       uuid.New(),
+		port:     manager.allocatePort(),
+		name:     mpcSignerDefaultName,
+		runOnSGX: runOnSGX,
 	}
 	manager.signersMap[signer.id.String()] = signer
 	return signer
@@ -264,11 +275,13 @@ func (manager *mpcSignerManager) next() *mpcSigner {
 var (
 	mpcSignerNum       *int
 	mpcRunForInSeconds *int
+	runOnSGX           *bool
 )
 
 func init() {
 	mpcSignerNum = flag.Int("signers-num", 5, "number of mpc signers")
 	mpcRunForInSeconds = flag.Int("run-for", 20, "number of seconds to run the mpc coordinator for")
+	runOnSGX = flag.Bool("run-on-sgx", true, "run on intel sgx")
 }
 
 func main() {
@@ -278,7 +291,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	for i := 0; i < *mpcSignerNum; i++ {
-		signer := mpcSignerManager.next()
+		signer := mpcSignerManager.next(*runOnSGX)
 		go func(ctx context.Context) {
 			if err := signer.Start(ctx); err != nil {
 				log.Printf("failed to start signer: %+v\n", err)
@@ -308,6 +321,7 @@ func main() {
 	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
 	cancel()
 
+	time.Sleep(5 * time.Second)
 	defer func() {
 		for _, signer := range mpcSignerManager.signersMap {
 			if err := signer.Stop(); err != nil {
