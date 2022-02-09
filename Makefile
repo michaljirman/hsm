@@ -8,7 +8,7 @@ protoc:
 mpc-signer: protoc
 	@echo "Building MPC Signer"
 	ego-go build -o signer \
-	    github.com/michaljirman/hsm/mpc-signer && ego sign mpc-signer
+	    github.com/michaljirman/hsm/mpc-signer && ego sign signer
 
 mpc-signer-dev: protoc
 	@echo "Building MPC Signer for localhost development"

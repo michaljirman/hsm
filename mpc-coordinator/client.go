@@ -261,11 +261,13 @@ func (manager *mpcSignerManager) next() *mpcSigner {
 }
 
 var (
-	mpcSignerNum *int
+	mpcSignerNum       *int
+	mpcRunForInSeconds *int
 )
 
 func init() {
 	mpcSignerNum = flag.Int("signers-num", 5, "number of mpc signers")
+	mpcRunForInSeconds = flag.Int("run-for", 20, "number of seconds to run the mpc coordinator for")
 }
 
 func main() {
@@ -276,12 +278,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	for i := 0; i < *mpcSignerNum; i++ {
 		signer := mpcSignerManager.next()
-		if err := signer.Start(); err != nil {
-			log.Printf("failed to start signer: %+v\n", err)
-			continue
-		}
-
 		go func(ctx context.Context) {
+			if err := signer.Start(); err != nil {
+				log.Printf("failed to start signer: %+v\n", err)
+				return
+			}
 			for {
 				select {
 				case <-ctx.Done():
@@ -303,7 +304,7 @@ func main() {
 		//}
 	}
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
 	cancel()
 
 	defer func() {

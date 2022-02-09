@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package protobuf;
 
+option go_package="github.com/michaljirman/hsm/proto";
+
 service MpcSigner {
     rpc Ready(ReadyRequest) returns (ReadyResponse) {}
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse) {}

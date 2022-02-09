@@ -114,8 +114,8 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("id:", *id)
-	fmt.Println("port:", *port)
+	//fmt.Println("id:", *id)
+	//fmt.Println("port:", *port)
 
 	// create listener
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
@@ -131,7 +131,7 @@ func main() {
 	})
 
 	// and start...
-	fmt.Printf("listening on %d ...\n", *port)
+	fmt.Printf("mpc-signer server with ID: %s is listening on %d ...\n", *id, *port)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
