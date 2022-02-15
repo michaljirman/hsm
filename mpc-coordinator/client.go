@@ -1,17 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"sync"
 	"time"
 
+	"github.com/edgelesssys/ego/eclient"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
@@ -280,16 +290,30 @@ var (
 	mpcSignerNum       *int
 	mpcRunForInSeconds *int
 	runOnSGX           *bool
+	signerArg          *string
+	serverAddr         *string
 )
 
 func init() {
 	mpcSignerNum = flag.Int("signers-num", 5, "number of mpc signers")
 	mpcRunForInSeconds = flag.Int("run-for", 20, "number of seconds to run the mpc coordinator for")
 	runOnSGX = flag.Bool("run-on-sgx", true, "run on intel sgx")
+
+	signerArg = flag.String("s", "", "signer ID")
+	serverAddr = flag.String("a", "localhost:8080", "server address")
 }
 
 func main() {
 	flag.Parse()
+	// get signer command line argument
+	signer, err := hex.DecodeString(*signerArg)
+	if err != nil {
+		panic(err)
+	}
+	if len(signer) == 0 {
+		flag.Usage()
+		return
+	}
 
 	mpcSignerManager := NewMpcSignerManager()
 
@@ -333,6 +357,26 @@ func main() {
 
 	time.Sleep(time.Duration(*mpcRunForInSeconds) * time.Second)
 
+	// Get server certificate and its report. Skip TLS certificate verification because
+	// the certificate is self-signed and we will verify it using the report instead.
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	url := "https://" + *serverAddr
+	certBytes := httpGet(tlsConfig, url+"/cert")
+	reportBytes := httpGet(tlsConfig, url+"/report")
+
+	if err := verifyReport(reportBytes, certBytes, signer); err != nil {
+		panic(err)
+	}
+
+	// Create a TLS config that uses the server certificate as root
+	// CA so that future connections to the server can be verified.
+	cert, _ := x509.ParseCertificate(certBytes)
+	tlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: "localhost"}
+	tlsConfig.RootCAs.AddCert(cert)
+
+	httpGet(tlsConfig, url+"/secret?s=mySecret")
+	fmt.Println("Sent secret over TLS channel.")
+
 	readinessCancel()
 
 	for _, signer := range mpcSignerManager.signersMap {
@@ -341,12 +385,14 @@ func main() {
 		}
 	}
 
-	//
+	// give extra time for all the signers to stop
 	time.Sleep(10 * time.Second)
+
+	// this will stop the coordinator process
 	signerProcessCancel()
 
-	fmt.Println("waiting for another 10s")
-	time.Sleep(10 * time.Second)
+	fmt.Println("waiting for another 2s")
+	time.Sleep(2 * time.Second)
 
 	//ctx, _ = context.WithCancel(context.Background())
 	//defer func() {
@@ -413,47 +459,47 @@ func main() {
 //	fmt.Println("Sent secret over TLS channel.")
 //}
 
-//func verifyReport(reportBytes, certBytes, signer []byte) error {
-//	report, err := eclient.VerifyRemoteReport(reportBytes)
-//	if err != nil {
-//		return err
-//	}
-//
-//	hash := sha256.Sum256(certBytes)
-//	if !bytes.Equal(report.Data[:len(hash)], hash[:]) {
-//		return errors.New("report data does not match the certificate's hash")
-//	}
-//
-//	// You can either verify the UniqueID or the tuple (SignerID, ProductID, SecurityVersion, Debug).
-//
-//	if report.SecurityVersion < 2 {
-//		return errors.New("invalid security version")
-//	}
-//	if binary.LittleEndian.Uint16(report.ProductID) != 1234 {
-//		return errors.New("invalid product")
-//	}
-//	if !bytes.Equal(report.SignerID, signer) {
-//		return errors.New("invalid signer")
-//	}
-//
-//	// For production, you must also verify that report.Debug == false
-//
-//	return nil
-//}
+func verifyReport(reportBytes, certBytes, signer []byte) error {
+	report, err := eclient.VerifyRemoteReport(reportBytes)
+	if err != nil {
+		return err
+	}
 
-//func httpGet(tlsConfig *tls.Config, url string) []byte {
-//	client := http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
-//	resp, err := client.Get(url)
-//	if err != nil {
-//		panic(err)
-//	}
-//	defer resp.Body.Close()
-//	if resp.StatusCode != http.StatusOK {
-//		panic(resp.Status)
-//	}
-//	body, err := ioutil.ReadAll(resp.Body)
-//	if err != nil {
-//		panic(err)
-//	}
-//	return body
-//}
+	hash := sha256.Sum256(certBytes)
+	if !bytes.Equal(report.Data[:len(hash)], hash[:]) {
+		return errors.New("report data does not match the certificate's hash")
+	}
+
+	// You can either verify the UniqueID or the tuple (SignerID, ProductID, SecurityVersion, Debug).
+
+	if report.SecurityVersion < 2 {
+		return errors.New("invalid security version")
+	}
+	if binary.LittleEndian.Uint16(report.ProductID) != 1234 {
+		return errors.New("invalid product")
+	}
+	if !bytes.Equal(report.SignerID, signer) {
+		return errors.New("invalid signer")
+	}
+
+	// For production, you must also verify that report.Debug == false
+
+	return nil
+}
+
+func httpGet(tlsConfig *tls.Config, url string) []byte {
+	client := http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
+	resp, err := client.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		panic(resp.Status)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	return body
+}

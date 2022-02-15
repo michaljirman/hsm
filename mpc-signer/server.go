@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"flag"
@@ -13,12 +14,12 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"net/http"
 	"time"
 
 	pb "github.com/michaljirman/hsm/proto"
 
 	"google.golang.org/grpc"
-	//"github.com/edgelesssys/ego/enclave"
 )
 
 var _ pb.MpcSignerServer = (*server)(nil)
@@ -40,6 +41,9 @@ func (s server) Ready(ctx context.Context, request *pb.ReadyRequest) (*pb.ReadyR
 
 func (s server) Shutdown(ctx context.Context, request *pb.ShutdownRequest) (*pb.ShutdownResponse, error) {
 	go func() {
+		if err := httpServer.Shutdown(ctx); err != nil {
+			fmt.Println("failed to stop http server")
+		}
 		fmt.Println("scheduling server shutdown in 5 seconds")
 		time.Sleep(2 * time.Second)
 		s.srv.GracefulStop()
@@ -93,6 +97,8 @@ func (s server) Test(srv pb.MpcSigner_TestServer) error {
 var (
 	id   *string
 	port *int
+
+	httpServer *http.Server
 )
 
 func init() {
@@ -123,6 +129,39 @@ func main() {
 
 	flag.Parse()
 
+	//start http server
+	// Create certificate and a report that includes the certificate's hash.
+	cert, priv := createCertificate()
+	//hash := sha256.Sum256(cert)
+	//report, err := enclave.GetRemoteReport(hash[:])
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+
+	// Create HTTPS server.
+
+	http.HandleFunc("/cert", func(w http.ResponseWriter, r *http.Request) { w.Write(cert) })
+	//http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) { w.Write(report) })
+	http.HandleFunc("/secret", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("%v sent secret %v\n", r.RemoteAddr, r.URL.Query()["s"])
+	})
+
+	tlsCfg := tls.Config{
+		Certificates: []tls.Certificate{
+			{
+				Certificate: [][]byte{cert},
+				PrivateKey:  priv,
+			},
+		},
+	}
+	httpServer = &http.Server{Addr: "0.0.0.0:8080", TLSConfig: &tlsCfg}
+	fmt.Println("listening ...")
+	go func() {
+		err := httpServer.ListenAndServeTLS("", "")
+		fmt.Println(err)
+	}()
+	//end http server
+
 	//fmt.Println("id:", *id)
 	//fmt.Println("port:", *port)
 
@@ -148,37 +187,6 @@ func main() {
 
 	fmt.Println("done")
 	time.Sleep(5 * time.Second)
-
-	//// Create certificate and a report that includes the certificate's hash.
-	//cert, priv := createCertificate()
-	////hash := sha256.Sum256(cert)
-	////report, err := enclave.GetRemoteReport(hash[:])
-	////if err != nil {
-	////	fmt.Println(err)
-	////}
-	//
-	//// Create HTTPS server.
-	//
-	//http.HandleFunc("/cert", func(w http.ResponseWriter, r *http.Request) { w.Write(cert) })
-	////http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) { w.Write(report) })
-	//http.HandleFunc("/secret", func(w http.ResponseWriter, r *http.Request) {
-	//	fmt.Printf("%v sent secret %v\n", r.RemoteAddr, r.URL.Query()["s"])
-	//})
-	//
-	//tlsCfg := tls.Config{
-	//	Certificates: []tls.Certificate{
-	//		{
-	//			Certificate: [][]byte{cert},
-	//			PrivateKey:  priv,
-	//		},
-	//	},
-	//}
-	//
-	//server := http.Server{Addr: "0.0.0.0:8080", TLSConfig: &tlsCfg}
-	//
-	//fmt.Println("listening ...")
-	//err := server.ListenAndServeTLS("", "")
-	//fmt.Println(err)
 }
 
 func createCertificate() ([]byte, crypto.PrivateKey) {
